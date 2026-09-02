@@ -61,7 +61,9 @@ Format the SD card as FAT16 or FAT32 and place these files in the root (filename
 | `win.mp3` | Jeopardy "Think" theme |
 | `fail.mp3` | Sad trombone |
 | `konami.mp3` | Fanfare / achievement sound |
-| `click.mp3` | Short click for each button press (~50–100 ms) |
+| `btn0.mp3` | Sound for button 0 (~50–100 ms) — swap the file to change it |
+| `btn1.mp3` | Sound for button 1 (~50–100 ms) — swap the file to change it |
+| `btn2.mp3` | Sound for button 2 (~50–100 ms) — swap the file to change it |
 | `tick.mp3` | Ticking sound for self-destruct countdown (~1 s) |
 | `boom.mp3` | Explosion |
 

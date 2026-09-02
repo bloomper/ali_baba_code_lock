@@ -16,7 +16,8 @@
     - Buzzer on pin 8
 
   SD CARD FILES (only relevant for real hardware):
-    win.mp3, fail.mp3, konami.mp3, click.mp3, tick.mp3, boom.mp3
+    win.mp3, fail.mp3, konami.mp3, tick.mp3, boom.mp3
+    btn0.mp3, btn1.mp3, btn2.mp3  <- one per button, swap them to change the sounds
 */
 
 #include <SPI.h>
@@ -41,6 +42,19 @@ bool useMusicMaker = false;  // set to true if VS1053 is detected
 
 // ---------- Buttons ----------
 const int BUTTON_PINS[3] = {A0, A1, A2};
+
+// ---------- Per-button sounds ----------
+// Real hardware: replace these files on the SD card to change each button's sound.
+const char* BUTTON_FILES[3] = {"btn0.mp3", "btn1.mp3", "btn2.mp3"};
+// Wokwi/buzzer fallback: one pitch per button so they are easy to tell apart.
+const int BUTTON_TONES[3]   = {1000, 1200, 1400};
+const int BUTTON_TONE_MS    = 40;
+
+// On the third press the win/fail sound follows immediately. The button sound is
+// started asynchronously on the shield, so it has to be waited for or it never
+// gets heard. The timeout is a safety net for a missing or corrupt file.
+const unsigned long BUTTON_SOUND_MAX_WAIT = 2000;
+const int           SOUND_GAP_MS          = 120;
 
 // ---------- Secret codes ----------
 const int SECRET_CODE[3] = {0, 1, 2};
@@ -120,9 +134,9 @@ void setup() {
   }
 
   // Startup signal
-  playClick();
+  playButtonSound(0);
   delay(150);
-  playClick();
+  playButtonSound(2);
 
   Serial.println(F("Ready. Press the buttons..."));
   Serial.println(F("Normal code: 0, 1, 2"));
@@ -162,7 +176,7 @@ void registerPress(int buttonIndex) {
   Serial.print(F(": button "));
   Serial.println(buttonIndex);
 
-  playClick();
+  playButtonSound(buttonIndex);
 
   if (pressCount == KONAMI_LENGTH && checkKonami()) {
     Serial.println(F("*** KONAMI CODE! ***"));
@@ -244,17 +258,34 @@ void selfDestruct() {
 
 // ---------- Sound functions ----------
 
-void playClick() {
+void playButtonSound(int buttonIndex) {
+  if (buttonIndex < 0 || buttonIndex > 2) return;
+
   if (useMusicMaker) {
+    // Returns straight away - the file keeps playing in the background so that
+    // presses stay responsive. waitForButtonSound() lets it finish.
     if (musicPlayer.playingMusic) musicPlayer.stopPlaying();
-    musicPlayer.startPlayingFile("click.mp3");
+    musicPlayer.startPlayingFile(BUTTON_FILES[buttonIndex]);
   } else {
-    tone(BUZZER_PIN, 1200, 40);
-    delay(80);
+    tone(BUZZER_PIN, BUTTON_TONES[buttonIndex], BUTTON_TONE_MS);
+    delay(BUTTON_TONE_MS * 2);
+  }
+}
+
+// Let a button sound that is still playing finish before the next sound starts.
+void waitForButtonSound() {
+  if (!useMusicMaker) return;
+
+  unsigned long start = millis();
+  while (musicPlayer.playingMusic && (millis() - start) < BUTTON_SOUND_MAX_WAIT) {
+    delay(5);
   }
 }
 
 void playSound(const char* filename, int melody[], int durations[], int length) {
+  waitForButtonSound();  // the third press must be heard before win/fail
+  delay(SOUND_GAP_MS);   // short silence so the two sounds stay distinct
+
   if (useMusicMaker) {
     if (musicPlayer.playingMusic) musicPlayer.stopPlaying();
     musicPlayer.playFullFile(filename);
